@@ -1,7 +1,7 @@
-import { createContext, ReactNode, useContext, useState } from 'react';
-import { toast } from 'react-toastify';
-import { api } from '../services/api';
-import { Product, Stock } from '../types';
+import { createContext, ReactNode, useContext, useState } from "react";
+import { toast } from "react-toastify";
+import { api } from "../services/api";
+import { Product, Stock } from "../types";
 
 interface CartProviderProps {
   children: ReactNode;
@@ -23,20 +23,47 @@ const CartContext = createContext<CartContextData>({} as CartContextData);
 
 export function CartProvider({ children }: CartProviderProps): JSX.Element {
   const [cart, setCart] = useState<Product[]>(() => {
-    // const storagedCart = Buscar dados do localStorage
+    const storagedCart = localStorage.getItem("@RocketShoes:cart");
 
-    // if (storagedCart) {
-    //   return JSON.parse(storagedCart);
-    // }
+    if (storagedCart) {
+      return JSON.parse(storagedCart);
+    }
 
     return [];
   });
 
   const addProduct = async (productId: number) => {
     try {
-      // TODO
+      const storagedCart = cart;
+
+      const stock: Stock = (await api.get(`/stock/${productId}`)).data;
+
+      const storagedProduct = storagedCart.find((p) => p.id === productId);
+
+      if (storagedProduct) {
+        if (storagedProduct.amount < stock.amount) {
+          const updatedStorage = storagedCart.map((product) =>
+            product.id === productId
+              ? { ...product, amount: (storagedProduct.amount += 1) }
+              : product
+          );
+
+          setCart(updatedStorage);
+        } else {
+          toast.error("Quantidade solicitada fora de estoque");
+        }
+      } else {
+        const product: Product = await (
+          await api.get(`/products/${productId}`)
+        ).data;
+
+        product.amount = 1;
+        setCart([{ ...product }]);
+      }
+
+      localStorage.setItem("@RocketShoes:cart", JSON.stringify(cart));
     } catch {
-      // TODO
+      toast.error("Erro na adição do produto");
     }
   };
 
